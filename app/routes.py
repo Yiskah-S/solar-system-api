@@ -25,25 +25,47 @@ def create_planet():
     message = f"New planet {new_planet.name} successfully created!"
     return make_response(message, 201)
 
-@planets_bp.route("", methods=['GET'])
+@planets_bp.route("", methods=["GET"])
 def get_planets():
-    planets = Planet.query.all()
+    mass = request.args.get("mass")
+    moons = request.args.get("moons")
+    distance = request.args.get("distance")
+    visited = request.args.get("visited")
+
+    planets = Planet.query
+
+    if mass:
+        planets = planets.filter_by(mass=mass)
+
+    if moons:
+        planets = planets.filter_by(moons=moons)
+
+    if distance:
+        planets = planets.filter_by(distance_from_sun=distance)
+
+    if visited:
+        planets = planets.filter_by(visited_by_humans=visited.lower())
+
+    planets = planets.all()
+
     request_body = []
     for planet in planets:
         request_body.append(
             dict(
-                id = planet.id,
-                name = planet.name,
-                description = planet.description,
-                mass = planet.mass,
-                moons = planet.moons,
-                distance_from_sun = planet.distance_from_sun,
-                surface_area = planet.surface_area,
-                namesake = planet.namesake,
-                visited_by_humans = planet.visited_by_humans
+                id=planet.id,
+                name=planet.name,
+                description=planet.description,
+                mass=planet.mass,
+                moons=planet.moons,
+                distance_from_sun=planet.distance_from_sun,
+                surface_area=planet.surface_area,
+                namesake=planet.namesake,
+                visited_by_humans=planet.visited_by_humans,
             )
         )
     return jsonify(request_body), 200
+
+
 
 def validate_planet(planet_id):
     try:
@@ -100,14 +122,28 @@ def remove_planet(planet_id):
 
     return make_response(f"Planet {planet_id} was succesfully deleted")
 
+@planets_bp.route("/visited", methods=["GET"])
+def get_visited_planets():
+    visited_planets = Planet.query.filter_by(visited_by_humans=True).all()
+    request_body = []
+    for planet in visited_planets:
+        request_body.append(
+            dict(
+                id=planet.id,
+                name=planet.name,
+                description=planet.description,
+                mass=planet.mass,
+                moons=planet.moons,
+                distance_from_sun=planet.distance_from_sun,
+                surface_area=planet.surface_area,
+                namesake=planet.namesake,
+                visited_by_humans=planet.visited_by_humans,
+            )
+        )
+    return jsonify(request_body), 200
 
 
 
-# # Wave 05: Review and Refactor
-
-
-# As time allows, add custom routes. 
-# * Consider using query params
 
 # # Wave 06: Writing Tests
 
