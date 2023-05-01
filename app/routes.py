@@ -1,86 +1,110 @@
-from flask import Blueprint, jsonify, abort, make_response
+from flask import Blueprint, jsonify, abort, make_response, request
+from app.models.planet import Planet
 
-
-planet_list = [
-    Planet(1, "Mercury", "Small, rocky planet closest to the Sun", 0.330),
-    Planet(2, "Venus", "Hottest planet in the solar system with a thick atmosphere", 4.87),
-    Planet(3, "Earth", "Home to a diverse range of life forms, including humans", 5.97),
-    Planet(4, "Mars", "Red planet with a thin atmosphere and polar ice caps", 0.642),
-    Planet(5, "Jupiter", "Largest planet in the solar system with a thick atmosphere and many moons", 1898),
-    Planet(6, "Saturn", "Known for its prominent rings made of ice and dust", 568),
-    Planet(7, "Uranus", "Blue-green planet with a tilted axis of rotation", 86.8),
-    Planet(8, "Neptune", "Blue planet with a windy atmosphere and many storms", 102),
-]
+from app import db
 
 planets_bp = Blueprint('planets', __name__, url_prefix='/planets')
 
-@planets_bp.route("", methods=["GET"])
+@planets_bp.route("", methods=['POST'])
+def create_planet():
+    request_body = request.get_json()
+    new_planet = Planet(
+        name = request_body["name"],
+        description = request_body["description"],
+        mass = request_body["mass"],
+        moons = request_body["moons"],
+        distance_from_sun = request_body["distance_from_sun"],
+        surface_area = request_body["surface_area"],
+        namesake = request_body["namesake"],
+        visited_by_humans = request_body['visited_by_humans'],
+    )
+
+    db.session.add(new_planet)
+    db.session.commit()
+
+    message = f"New planet {new_planet.name} successfully created!"
+    return make_response(message, 201)
+
+@planets_bp.route("", methods=['GET'])
 def get_planets():
-    planets_response = []
-    for planet in planet_list:
-        planets_response.append(planet.to_dict())
+    planets = Planet.query.all()
+    request_body = []
+    for planet in planets:
+        request_body.append(
+            dict(
+                id = planet.id,
+                name = planet.name,
+                description = planet.description,
+                mass = planet.mass,
+                moons = planet.moons,
+                distance_from_sun = planet.distance_from_sun,
+                surface_area = planet.surface_area,
+                namesake = planet.namesake,
+                visited_by_humans = planet.visited_by_humans
+            )
+        )
+    return jsonify(request_body), 200
 
-    return jsonify(planets_response), 200
-
-@planets_bp.route("/<id>", methods=["GET"])
-def get_planet(id):
-    planet = validate_planet(id)
-
-    return planet.to_dict()
-
-def validate_planet(id):
+def validate_planet(planet_id):
     try:
-        id = int(id)
-    
+        planet_id = int(planet_id)
     except:
-        abort(make_response({"message": f"Planet {id} is invalid!"}, 400))
+        abort(make_response({"message": f"Planet {planet_id} is invalid!"}, 400))
     
-    for planet in planet_list:
-        if planet.id == id:
-            return planet
+    planet = Planet.query.get(planet_id)
 
-    abort(make_response({"message": f"Planet {id} is not found!"}, 404))
+    if not planet:
+        abort(make_response({"message": f"Planet {planet_id} was not found!"}, 404))
 
-# # Wave 03: Connecting the Database, Read and Create Endpoints
+    return planet
 
-# ## Database Setup
+@planets_bp.route("/<planet_id>", methods=['GET'])
+def get_planet(planet_id):
+    planet = validate_planet(planet_id)
+    request_body = {
+            "name": planet.name,
+            "description": planet.description,
+            "mass": planet.mass,
+            "moons": planet.moons,
+            "distance_from_sun": planet.distance_from_sun,
+            "surface_area": planet.surface_area,
+            "namesake": planet.namesake,
+            "visited_by_humans" : planet.visited_by_humans
+        }
+    return jsonify(request_body), 200
 
-# Complete the following setup steps of the Solar System API repo:
-# 1. Activate the virtual environment
-# 1. Create the database `solar_system_development`
-#     * *Every member of the group must create the database on their computer*
-# 1. Setup the `Planet` model with the attributes `id`, `name`, and `description`, and one additional attribute
-# 1. Create a migration to add a table for the `Planet` model and then apply it. 
-#     * *Confirm that the `planet` table has been created as expected in postgres*.
+@planets_bp.route("/<planet_id>", methods=["PUT"])
+def update_planet(planet_id):
+    planet = validate_planet(planet_id)
+    request_body = request.get_json()
 
-# ## RESTful Endpoints: Create and Read
+    planet.name = request_body["name"]
+    planet.description = request_body["description"]
+    planet.mass = request_body["mass"]
+    planet.moons = request_body["moons"]
+    planet.distance_from_sun = request_body["distance_from_sun"]
+    planet.surface_area = request_body["surface_area"]
+    planet.namesake = request_body["namesake"]
+    planet.visited_by_humans = request_body['visited_by_humans']
 
-# Create or refactor the following endpoints, with similar functionality presented in the Hello Books API:
+    db.session.commit()
 
-# As a client, I want to send a request...
+    return make_response(f"Planet {planet_id} successfully updated to {planet.name}, {planet.description}, {planet.mass}, {planet.moons}, {planet.distance_from_sun}, {planet.surface_area}, {planet.namesake}, and it's {planet.visited_by_humans} that it has been visited by humans!")
 
-# 1. ...with new valid `planet` data and get a success response, so that I know the API saved the planet data
-# 1. ...to get all existing `planets`, so that I can see a list of planets, with their `id`, `name`, `description`, and other data of the `planet`.
+@planets_bp.route("/<planet_id>", methods=["DELETE"])
+def remove_planet(planet_id):
+    planet = validate_planet(planet_id)
 
-# # Wave 04: Read, Update, Delete
+    db.session.delete(planet)
+    db.session.commit()
 
-# ## RESTful Endpoints: Read, Update, and Delete
+    return make_response(f"Planet {planet_id} was succesfully deleted")
 
-# Create the following endpoints, with similar functionality presented in the Hello Books API:
 
-# As a client, I want to send a request...
 
-# 1. ...to get one existing `planet`, so that I can see the `id`, `name`, `description`, and other data of the `planet`.
-# 1. ... with valid planet data to update one existing `planet` and get a success response, so that I know the API updated the `planet` data.
-# 1. ... to delete one existing `planet` and get a success response, so that I know the API deleted the `planet` data..
-#     * Each of the above endpoints should respond with a `404` for non-existing planets and a `400` for invalid `planet_id`.
 
 # # Wave 05: Review and Refactor
 
-# Review the requirements for Wave 01 - 04
-# * Test the endpoints using postman
-# * Complete or fix any incomplete or broken endpoints
-# * Look for opportunities to refactor
 
 # As time allows, add custom routes. 
 # * Consider using query params
